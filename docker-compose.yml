@@ -1,0 +1,60 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: quantum_fleet_backend
+    ports:
+      - "8000:8000"
+    environment:
+      - PROJECT_NAME=Quantum Fleet
+      - API_V1_STR=/api/v1
+      - DATABASE_PATH=/app/data/quantum_fleet.duckdb
+    volumes:
+      - ./backend/data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - quantum_fleet_net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: quantum_fleet_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - quantum_fleet_net
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: quantum_fleet_postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=quantum_fleet
+      - POSTGRES_USER=quantum_fleet_admin
+      - POSTGRES_PASSWORD=quantum_fleet_secret
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - quantum_fleet_net
+
+networks:
+  quantum_fleet_net:
+    driver: bridge
+
+volumes:
+  postgres_data:
